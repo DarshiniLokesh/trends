@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import newsRouter from "./routes/news.ts";
+import youtubeRoutes from "./routes/youtube.js";
 
 dotenv.config();
 const app = express();
@@ -17,6 +18,8 @@ app.get("/", (req, res) => {
 
 // ✅ Register routes
 app.use("/api/news", newsRouter);
+app.use("/api/youtube", youtubeRoutes);
+
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);

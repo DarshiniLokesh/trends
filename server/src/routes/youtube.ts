@@ -1,23 +1,54 @@
-import { Router, Request, Response } from "express";
-import axios from "axios";
-import dotenv from "dotenv";
-dotenv.config();
+import express, { Request, Response } from "express";
+import fetch from "node-fetch";
+import { summarizeWithMCP } from "../utils/summarizeWithMCP.js";
 
-const router = Router();
-const YT_API = process.env.YOUTUBE_API_KEY!;
+const router = express.Router();
+
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY as string;
 
 router.get("/:topic", async (req: Request, res: Response) => {
-  const { topic } = req.params;
+  const topic = req.params.topic;
 
   try {
-    const response = await axios.get(
-      `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${topic}&type=video&maxResults=6&key=${YT_API}`
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
+      topic
+    )}&type=video&maxResults=10&key=${YOUTUBE_API_KEY}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (!data.items) {
+      return res
+        .status(500)
+        .json({ success: false, error: "No videos found or quota exceeded" });
+    }
+
+    const videos = data.items.map((item: any) => ({
+      title: item.snippet.title,
+      channel: item.snippet.channelTitle,
+      thumbnail: item.snippet.thumbnails?.high?.url,
+      publishedAt: item.snippet.publishedAt,
+      videoUrl: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+      description: item.snippet.description,
+    }));
+
+    // Use your MCP summarizer
+    const summary = await summarizeWithMCP(
+      videos.map((v) => v.title + ": " + v.description).join("\n")
     );
 
-    res.json(response.data.items);
-  } catch (error) {
-    console.error("❌ Error fetching YouTube:", error);
-    res.status(500).json({ error: "Failed to fetch YouTube videos" });
+    res.json({
+      success: true,
+      count: videos.length,
+      summary,
+      videos,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch YouTube videos",
+    });
   }
 });
 
