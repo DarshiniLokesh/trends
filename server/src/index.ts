@@ -2,7 +2,8 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import newsRouter from "./routes/news.ts";
-import youtubeRoutes from "./routes/youtube.js";
+import youtubeRoutes from "./routes/youtube.ts";
+import redditRoutes from "./routes/reddit.ts";
 
 dotenv.config();
 const app = express();
@@ -19,6 +20,7 @@ app.get("/", (req, res) => {
 // ✅ Register routes
 app.use("/api/news", newsRouter);
 app.use("/api/youtube", youtubeRoutes);
+app.use("/api/reddit", redditRoutes);
 
 
 app.listen(PORT, () => {

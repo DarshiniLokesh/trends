@@ -1,6 +1,7 @@
-import express, { Request, Response } from "express";
+import express from "express";
+import type { Request, Response } from "express";
 import fetch from "node-fetch";
-import { summarizeWithMCP } from "../utils/summarizeWithMCP.js";
+import { summarizeWithMCP } from "../utils/summarizeWithMCP.ts";
 
 const router = express.Router();
 
@@ -15,7 +16,7 @@ router.get("/:topic", async (req: Request, res: Response) => {
     )}&type=video&maxResults=10&key=${YOUTUBE_API_KEY}`;
 
     const response = await fetch(url);
-    const data = await response.json();
+    const data: { items?: any[] } = await response.json();
 
     if (!data.items) {
       return res
@@ -33,9 +34,7 @@ router.get("/:topic", async (req: Request, res: Response) => {
     }));
 
     // Use your MCP summarizer
-    const summary = await summarizeWithMCP(
-      videos.map((v) => v.title + ": " + v.description).join("\n")
-    );
+    const summary = await summarizeWithMCP(videos);
 
     res.json({
       success: true,

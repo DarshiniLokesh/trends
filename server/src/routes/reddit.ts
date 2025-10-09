@@ -1,28 +1,29 @@
-import { Router, Request, Response } from "express";
-import axios from "axios";
+import express from "express";
+import fetch from "node-fetch";
 
-const router = Router();
+const router = express.Router();
 
-router.get("/:topic", async (req: Request, res: Response) => {
-  const { topic } = req.params;
-
+router.get("/:topic", async (req, res) => {
+  const topic = req.params.topic;
   try {
-    const response = await axios.get(
-      `https://www.reddit.com/search.json?q=${topic}&limit=6`,
-      { headers: { "User-Agent": "pulseboard-app/1.0" } }
-    );
+    const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(topic)}&limit=10`;
+    const response = await fetch(url);
+    const data = (await response.json()) as { data?: { children?: any[] } };
+    const children = data?.data?.children ?? [];
 
-    const posts = response.data.data.children.map((post: any) => ({
-      title: post.data.title,
-      url: `https://www.reddit.com${post.data.permalink}`,
-      subreddit: post.data.subreddit,
-      ups: post.data.ups,
+    const posts = children.map((p: any) => ({
+      title: p.data.title,
+      url: `https://www.reddit.com${p.data.permalink}`,
+      author: p.data.author,
+      subreddit: p.data.subreddit,
+      ups: p.data.ups,
+      thumbnail: p.data.thumbnail?.startsWith("http") ? p.data.thumbnail : null,
     }));
 
-    res.json(posts);
-  } catch (error) {
-    console.error("❌ Error fetching Reddit:", error);
-    res.status(500).json({ error: "Failed to fetch Reddit posts" });
+    res.json({ posts });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch Reddit data" });
   }
 });
 
