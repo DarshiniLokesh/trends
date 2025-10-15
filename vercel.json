@@ -4,8 +4,8 @@
     { "src": "client/package.json", "use": "@vercel/static-build", "config": { "distDir": "dist" } },
     { "src": "api/index.ts", "use": "@vercel/node" }
   ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/index.ts" },
-    { "src": "/(.*)", "dest": "/client/dist/index.html" }
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index.ts" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
