@@ -1,0 +1,11 @@
+{
+  "name": "api",
+  "private": true,
+  "main": "index.js",
+  "engines": { "node": "18.x" },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
+
+
