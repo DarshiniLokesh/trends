@@ -34,7 +34,7 @@ export default function Feed({ searchTerm, category }: FeedProps) {
     const fetchFeed = async () => {
       try {
         setLoading(true);
-        const API = import.meta.env.VITE_API_URL ?? "http://localhost:5050";
+        const API = import.meta.env.VITE_API_URL || ""; // empty => same-origin
         const query =
           searchTerm && searchTerm.trim() ? searchTerm.trim() : category;
 

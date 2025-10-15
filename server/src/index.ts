@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import newsRouter from "./routes/news.ts";
 import youtubeRoutes from "./routes/youtube.ts";
 import redditRoutes from "./routes/reddit.ts";
+import redditRoutes from "./routes/reddit.ts";
 
 dotenv.config();
 const app = express();
@@ -21,8 +22,14 @@ app.get("/", (req, res) => {
 app.use("/api/news", newsRouter);
 app.use("/api/youtube", youtubeRoutes);
 app.use("/api/reddit", redditRoutes);
+app.use("/api/reddit", redditRoutes);
 
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-});
+// Export the Express app for Vercel serverless. Avoid listening when running on Vercel.
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+  });
+}
+
+export default app;
