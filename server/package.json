@@ -2,6 +2,7 @@
   "name": "server",
   "version": "1.0.0",
   "type": "module",
+  "engines": { "node": "22.x" },
   "main": "dist/index.js",
   "scripts": {
     "dev": "ts-node --require tsconfig-paths/register src/index.ts",

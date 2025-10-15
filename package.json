@@ -1,4 +1,7 @@
 {
+  "name": "trends",
+  "private": true,
+  "engines": { "node": "22.x" },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.19.1"
   }
