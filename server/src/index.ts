@@ -1,9 +1,9 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import newsRouter from "./routes/news.ts";
-import youtubeRoutes from "./routes/youtube.ts";
-import redditRoutes from "./routes/reddit.ts";
+import newsRouter from "./routes/news.js";
+import youtubeRoutes from "./routes/youtube.js";
+import redditRoutes from "./routes/reddit.js";
 import redditRoutes from "./routes/reddit.ts";
 
 dotenv.config();
