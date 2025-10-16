@@ -21,10 +21,12 @@ module.exports = async (req, res) => {
       const key = process.env.PERPLEXITY_API_KEY;
       if (!key) return null;
 
-      const contentList = (items || []).map((it) =>
-        kind === 'news' ? `- ${it.title} (${it.source?.name || 'source unknown'})`
-                        : `- ${it.title} (${it.channelTitle || 'channel'})`
-      ).slice(0, 12);
+      const contentList = (items || []).map((it) => {
+        const title = (it.title || '').replace(/\s+/g, ' ').trim();
+        const desc = (it.description || '').replace(/\s+/g, ' ').trim();
+        if (kind === 'news') return `- ${title}`;
+        return `- ${title}${desc ? ` — ${desc.slice(0, 120)}` : ''}`;
+      }).slice(0, 12);
 
       const wantBullets = kind === 'youtube';
       const messages = [
@@ -90,7 +92,7 @@ module.exports = async (req, res) => {
   }
   
   if (path.startsWith('/api/news/')) {
-    const topic = path.split('/').pop();
+    const topic = decodeURIComponent(path.split('/').pop() || '');
     console.log('News API - topic:', topic);
     
     const NEWS_API_KEY = process.env.NEWS_API_KEY;
@@ -106,11 +108,12 @@ module.exports = async (req, res) => {
 
       // Lightweight summary and tags
       // Prefer Perplexity summarization when available
-      let summary = '', tags = [];
+      let summary = '', tags = [], summarySource = 'heuristic';
       const mcp = await summarizeWithPerplexity({ items: articles, topic, kind: 'news' });
       if (mcp) {
         summary = mcp.summary;
         tags = mcp.tags;
+        summarySource = 'perplexity';
       } else {
         const titles = articles.slice(0, 8).map(a => a.title).filter(Boolean);
         summary = titles.length
@@ -128,6 +131,7 @@ module.exports = async (req, res) => {
         success: true,
         summary,
         tags,
+        summarySource,
         count: articles.length,
         articles
       });
@@ -138,7 +142,7 @@ module.exports = async (req, res) => {
   }
   
   if (path.startsWith('/api/youtube/')) {
-    const topic = path.split('/').pop();
+    const topic = decodeURIComponent(path.split('/').pop() || '');
     console.log('YouTube API - topic:', topic);
     
     const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
@@ -166,11 +170,12 @@ module.exports = async (req, res) => {
           publishedAt: item.snippet?.publishedAt,
         };
       });
-      let summary = '', tags = [];
+      let summary = '', tags = [], summarySource = 'heuristic';
       const mcp = await summarizeWithPerplexity({ items: videos, topic, kind: 'youtube' });
       if (mcp) {
         summary = mcp.summary;
         tags = mcp.tags;
+        summarySource = 'perplexity';
       } else {
         summary = videos.length
           ? `Trending ${topic} videos: ` + videos.slice(0, 6).map(v => v.title).join('; ')
@@ -180,7 +185,7 @@ module.exports = async (req, res) => {
         )).slice(0, 6);
       }
 
-      return res.json({ summary, tags, videos });
+      return res.json({ summary, tags, summarySource, videos });
     } catch (error) {
       console.error('YouTube API error:', error);
       return res.status(500).json({ error: error?.message || "Failed to fetch YouTube videos" });

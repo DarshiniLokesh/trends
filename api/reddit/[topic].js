@@ -16,7 +16,7 @@ async function getRedditToken() {
         'Content-Type': 'application/x-www-form-urlencoded',
         'User-Agent': 'TrendsApp/1.0 (+https://trends.vercel.app)'
       },
-      body: 'grant_type=client_credentials'
+      body: 'grant_type=client_credentials&scope=read'
     });
     if (!resp.ok) return null;
     const data = await resp.json();
