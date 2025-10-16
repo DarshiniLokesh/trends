@@ -9,8 +9,9 @@ module.exports = async (req, res) => {
     const topic = decodeURIComponent(pathname.split('/').pop() || 'technology');
 
     // Ask Reddit for JSON explicitly and provide a User-Agent so we don't get HTML
-    const apiUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(topic)}&limit=10&raw_json=1`;
-    let r = await fetch(apiUrl, {
+    // Try official api.reddit.com first (tends to be less aggressively blocked)
+    const apiUrlPrimary = `https://api.reddit.com/search.json?q=${encodeURIComponent(topic)}&limit=10&raw_json=1`;
+    let r = await fetch(apiUrlPrimary, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; TrendsBot/1.0; +https://trends.vercel.app)',
         'Accept': 'application/json',
@@ -18,15 +19,26 @@ module.exports = async (req, res) => {
       }
     });
 
-    // If Reddit blocks the Vercel IP (403), retry once with a fallback fetcher
+    // If Reddit blocks the Vercel IP (403), retry fallbacks
     if (r.status === 403) {
-      const fallback = `https://r.jina.ai/http://www.reddit.com/search.json?q=${encodeURIComponent(topic)}&limit=10&raw_json=1`;
-      r = await fetch(fallback);
+      const apiUrlWeb = `https://www.reddit.com/search.json?q=${encodeURIComponent(topic)}&limit=10&raw_json=1`;
+      r = await fetch(apiUrlWeb, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; TrendsBot/1.0; +https://trends.vercel.app)',
+          'Accept': 'application/json',
+          'Referer': 'https://www.reddit.com/'
+        }
+      });
+      if (r.status === 403) {
+        const proxy = `https://r.jina.ai/http://www.reddit.com/search.json?q=${encodeURIComponent(topic)}&limit=10&raw_json=1`;
+        r = await fetch(proxy);
+      }
     }
 
     if (!r.ok) {
       const body = await r.text();
-      return res.status(r.status).json({ error: 'Upstream Reddit error', status: r.status, bodySample: body.slice(0, 200) });
+      // Graceful degrade: return empty list instead of error to keep UI working
+      return res.status(200).json({ posts: [], note: 'Reddit blocked the request; returning empty list', debug: body.slice(0, 120) });
     }
 
     // Read ONCE, then try to parse as JSON
@@ -35,7 +47,7 @@ module.exports = async (req, res) => {
     try {
       data = JSON.parse(bodyText);
     } catch (e) {
-      return res.status(502).json({ error: 'Reddit returned non-JSON', bodySample: bodyText.slice(0, 200) });
+      return res.status(200).json({ posts: [], note: 'Reddit returned non-JSON; returning empty list', debug: bodyText.slice(0, 120) });
     }
     const posts = (data?.data?.children ?? []).map(p => ({
       title: p.data.title,
