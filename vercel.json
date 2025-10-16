@@ -2,10 +2,5 @@
   "version": 2,
   "buildCommand": "cd client && npm install && npm run build",
   "outputDirectory": "client/dist",
-  "installCommand": "npm install",
-  "functions": {
-    "api/index.js": {
-      "runtime": "nodejs22.x"
-    }
-  }
+  "installCommand": "npm install"
 }
