@@ -14,6 +14,50 @@ module.exports = async (req, res) => {
   
   const url = new URL(req.url, `https://${req.headers.host}`);
   const path = url.pathname;
+
+  // Helper: Perplexity summaries (OpenAI-compatible API)
+  async function summarizeWithPerplexity({ items, topic, kind }) {
+    try {
+      const key = process.env.PERPLEXITY_API_KEY;
+      if (!key) return null;
+
+      const contentList = (items || []).map((it) =>
+        kind === 'news' ? `- ${it.title} (${it.source?.name || 'source unknown'})`
+                        : `- ${it.title} (${it.channelTitle || 'channel'})`
+      ).slice(0, 12);
+
+      const messages = [
+        { role: 'system', content: 'You are a concise news/video summarizer. Output a short 2-3 sentence summary and a JSON array of 3-6 topic tags. Keep it neutral and informative.' },
+        { role: 'user', content: `Topic: ${topic}\nItems:\n${contentList.join('\n')}\n\nReturn JSON with keys: summary (string), tags (string[]).` }
+      ];
+
+      const resp = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${key}`
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-sonar-small-128k-online',
+          temperature: 0.3,
+          messages
+        })
+      });
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      const text = data?.choices?.[0]?.message?.content || '';
+      // Try to parse JSON anywhere in the text
+      const match = text.match(/\{[\s\S]*\}/);
+      if (!match) return { summary: text.slice(0, 280), tags: [] };
+      const parsed = JSON.parse(match[0]);
+      return {
+        summary: typeof parsed.summary === 'string' ? parsed.summary : (text.slice(0, 280) || ''),
+        tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 8) : []
+      };
+    } catch (_) {
+      return null;
+    }
+  }
   
   // Route to different handlers based on path
   if (path === '/api/test') {
@@ -33,11 +77,34 @@ module.exports = async (req, res) => {
       const newsUrl = `https://newsapi.org/v2/everything?q=${encodeURIComponent(topic)}&language=en&sortBy=publishedAt&pageSize=10&apiKey=${NEWS_API_KEY}`;
       const response = await fetch(newsUrl);
       const data = await response.json();
-      
+      const articles = data.articles ?? [];
+
+      // Lightweight summary and tags
+      // Prefer Perplexity summarization when available
+      let summary = '', tags = [];
+      const mcp = await summarizeWithPerplexity({ items: articles, topic, kind: 'news' });
+      if (mcp) {
+        summary = mcp.summary;
+        tags = mcp.tags;
+      } else {
+        const titles = articles.slice(0, 8).map(a => a.title).filter(Boolean);
+        summary = titles.length
+          ? `Top ${titles.length} headlines on ${topic}: ` + titles.join('; ')
+          : `No recent headlines found for ${topic}.`;
+        tags = Array.from(new Set(
+          titles
+            .join(' ')
+            .toLowerCase()
+            .match(/[#@]?\w{4,}/g) || []
+        )).slice(0, 6);
+      }
+
       return res.json({ 
-        success: true, 
-        count: data.articles?.length ?? 0, 
-        articles: data.articles ?? [] 
+        success: true,
+        summary,
+        tags,
+        count: articles.length,
+        articles
       });
     } catch (error) {
       console.error('News API error:', error);
@@ -67,8 +134,21 @@ module.exports = async (req, res) => {
         channelTitle: item.snippet?.channelTitle,
         publishedAt: item.snippet?.publishedAt,
       }));
-      
-      return res.json({ videos });
+      let summary = '', tags = [];
+      const mcp = await summarizeWithPerplexity({ items: videos, topic, kind: 'youtube' });
+      if (mcp) {
+        summary = mcp.summary;
+        tags = mcp.tags;
+      } else {
+        summary = videos.length
+          ? `Trending ${topic} videos: ` + videos.slice(0, 6).map(v => v.title).join('; ')
+          : `No trending ${topic} videos right now.`;
+        tags = Array.from(new Set(
+          videos.map(v => v.title).join(' ').toLowerCase().match(/[#@]?\w{4,}/g) || []
+        )).slice(0, 6);
+      }
+
+      return res.json({ summary, tags, videos });
     } catch (error) {
       console.error('YouTube API error:', error);
       return res.status(500).json({ error: error?.message || "Failed to fetch YouTube videos" });
