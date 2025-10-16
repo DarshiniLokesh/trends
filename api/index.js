@@ -26,14 +26,17 @@ module.exports = async (req, res) => {
                         : `- ${it.title} (${it.channelTitle || 'channel'})`
       ).slice(0, 12);
 
+      const wantBullets = kind === 'youtube';
       const messages = [
         {
           role: 'system',
-          content: 'You are a world‑class editor. Given headlines, produce: 1) a crisp 2–3 sentence executive summary with signal over noise, no hype; 2) 4–8 lowercase topic tags (single words). Output MUST be pure JSON with keys {"summary": string, "tags": string[]}. Do not include prose outside JSON.'
+          content: wantBullets
+            ? 'You are a world‑class curator. From video titles, produce 4–7 crisp bullet takeaways (no fluff), each ≤18 words, plus 4–8 lowercase topic tags (single words). Output pure JSON {"bullets": string[], "tags": string[]}. No prose outside JSON.'
+            : 'You are a world‑class editor. From headlines, produce a 2–3 sentence executive summary (no hype) and 4–8 lowercase topic tags (single words). Output pure JSON {"summary": string, "tags": string[]}. No prose outside JSON.'
         },
         {
           role: 'user',
-          content: `topic: ${topic}\nkind: ${kind}\nheadlines:\n${contentList.join('\n')}`
+          content: `topic: ${topic}\nkind: ${kind}\nitems:\n${contentList.join('\n')}`
         }
       ];
 
@@ -64,8 +67,16 @@ module.exports = async (req, res) => {
       }
       if (!jsonString) return { summary: text.slice(0, 320), tags: [] };
       const parsed = JSON.parse(jsonString);
+      let summaryText = '';
+      if (Array.isArray(parsed.bullets)) {
+        summaryText = parsed.bullets.map(b => `• ${String(b)}`).join(' ');
+      } else if (typeof parsed.summary === 'string') {
+        summaryText = parsed.summary;
+      } else {
+        summaryText = text.slice(0, 320) || '';
+      }
       return {
-        summary: typeof parsed.summary === 'string' ? parsed.summary : (text.slice(0, 280) || ''),
+        summary: summaryText,
         tags: Array.isArray(parsed.tags) ? parsed.tags.map(t => String(t).toLowerCase()).slice(0, 8) : []
       };
     } catch (_) {
