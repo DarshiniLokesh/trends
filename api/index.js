@@ -19,7 +19,7 @@ module.exports = async (req, res) => {
   async function summarizeWithPerplexity({ items, topic, kind }) {
     try {
       const key = process.env.PERPLEXITY_API_KEY;
-      if (!key) return null;
+      if (!key) return { ok: false, status: 'NO_KEY' };
 
       const contentList = (items || []).map((it) => {
         const title = (it.title || '').replace(/\s+/g, ' ').trim();
@@ -56,7 +56,7 @@ module.exports = async (req, res) => {
           messages
         })
       });
-      if (!resp.ok) return null;
+      if (!resp.ok) return { ok: false, status: resp.status };
       const data = await resp.json();
       const text = data?.choices?.[0]?.message?.content || '';
       // Try fenced JSON first
@@ -78,11 +78,13 @@ module.exports = async (req, res) => {
         summaryText = text.slice(0, 320) || '';
       }
       return {
+        ok: true,
+        status: 200,
         summary: summaryText,
         tags: Array.isArray(parsed.tags) ? parsed.tags.map(t => String(t).toLowerCase()).slice(0, 8) : []
       };
-    } catch (_) {
-      return null;
+    } catch (e) {
+      return { ok: false, status: 'EXCEPTION' };
     }
   }
   
@@ -108,13 +110,15 @@ module.exports = async (req, res) => {
 
       // Lightweight summary and tags
       // Prefer Perplexity summarization when available
-      let summary = '', tags = [], summarySource = 'heuristic';
+      let summary = '', tags = [], summarySource = 'heuristic', perplexityStatus = null;
       const mcp = await summarizeWithPerplexity({ items: articles, topic, kind: 'news' });
-      if (mcp) {
+      if (mcp?.ok) {
         summary = mcp.summary;
         tags = mcp.tags;
         summarySource = 'perplexity';
+        perplexityStatus = mcp.status;
       } else {
+        perplexityStatus = mcp?.status ?? null;
         const titles = articles.slice(0, 8).map(a => a.title).filter(Boolean);
         summary = titles.length
           ? `Top ${titles.length} headlines on ${topic}: ` + titles.join('; ')
@@ -132,6 +136,7 @@ module.exports = async (req, res) => {
         summary,
         tags,
         summarySource,
+        perplexityStatus,
         count: articles.length,
         articles
       });
@@ -170,13 +175,15 @@ module.exports = async (req, res) => {
           publishedAt: item.snippet?.publishedAt,
         };
       });
-      let summary = '', tags = [], summarySource = 'heuristic';
+      let summary = '', tags = [], summarySource = 'heuristic', perplexityStatus = null;
       const mcp = await summarizeWithPerplexity({ items: videos, topic, kind: 'youtube' });
-      if (mcp) {
+      if (mcp?.ok) {
         summary = mcp.summary;
         tags = mcp.tags;
         summarySource = 'perplexity';
+        perplexityStatus = mcp.status;
       } else {
+        perplexityStatus = mcp?.status ?? null;
         summary = videos.length
           ? `Trending ${topic} videos: ` + videos.slice(0, 6).map(v => v.title).join('; ')
           : `No trending ${topic} videos right now.`;
@@ -185,7 +192,7 @@ module.exports = async (req, res) => {
         )).slice(0, 6);
       }
 
-      return res.json({ summary, tags, summarySource, videos });
+      return res.json({ summary, tags, summarySource, perplexityStatus, videos });
     } catch (error) {
       console.error('YouTube API error:', error);
       return res.status(500).json({ error: error?.message || "Failed to fetch YouTube videos" });
