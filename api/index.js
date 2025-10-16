@@ -27,32 +27,46 @@ module.exports = async (req, res) => {
       ).slice(0, 12);
 
       const messages = [
-        { role: 'system', content: 'You are a concise news/video summarizer. Output a short 2-3 sentence summary and a JSON array of 3-6 topic tags. Keep it neutral and informative.' },
-        { role: 'user', content: `Topic: ${topic}\nItems:\n${contentList.join('\n')}\n\nReturn JSON with keys: summary (string), tags (string[]).` }
+        {
+          role: 'system',
+          content: 'You are a world‑class editor. Given headlines, produce: 1) a crisp 2–3 sentence executive summary with signal over noise, no hype; 2) 4–8 lowercase topic tags (single words). Output MUST be pure JSON with keys {"summary": string, "tags": string[]}. Do not include prose outside JSON.'
+        },
+        {
+          role: 'user',
+          content: `topic: ${topic}\nkind: ${kind}\nheadlines:\n${contentList.join('\n')}`
+        }
       ];
 
       const resp = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
           'Authorization': `Bearer ${key}`
         },
         body: JSON.stringify({
-          model: 'llama-3.1-sonar-small-128k-online',
-          temperature: 0.3,
+          model: 'llama-3.1-sonar-large-128k-online',
+          temperature: 0.2,
+          max_tokens: 400,
           messages
         })
       });
       if (!resp.ok) return null;
       const data = await resp.json();
       const text = data?.choices?.[0]?.message?.content || '';
-      // Try to parse JSON anywhere in the text
-      const match = text.match(/\{[\s\S]*\}/);
-      if (!match) return { summary: text.slice(0, 280), tags: [] };
-      const parsed = JSON.parse(match[0]);
+      // Try fenced JSON first
+      let jsonString = '';
+      const fenced = text.match(/```\s*json\s*([\s\S]*?)```/i);
+      if (fenced && fenced[1]) jsonString = fenced[1];
+      if (!jsonString) {
+        const inline = text.match(/\{[\s\S]*\}/);
+        if (inline) jsonString = inline[0];
+      }
+      if (!jsonString) return { summary: text.slice(0, 320), tags: [] };
+      const parsed = JSON.parse(jsonString);
       return {
         summary: typeof parsed.summary === 'string' ? parsed.summary : (text.slice(0, 280) || ''),
-        tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 8) : []
+        tags: Array.isArray(parsed.tags) ? parsed.tags.map(t => String(t).toLowerCase()).slice(0, 8) : []
       };
     } catch (_) {
       return null;
