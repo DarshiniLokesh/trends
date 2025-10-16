@@ -139,15 +139,22 @@ module.exports = async (req, res) => {
       const youtubeUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(topic)}&type=video&maxResults=9&key=${YOUTUBE_API_KEY}`;
       const response = await fetch(youtubeUrl);
       const data = await response.json();
-      
-      const videos = (data.items ?? []).map((item) => ({
-        id: item.id?.videoId,
-        title: item.snippet?.title,
-        description: item.snippet?.description,
-        thumbnail: item.snippet?.thumbnails?.medium?.url,
-        channelTitle: item.snippet?.channelTitle,
-        publishedAt: item.snippet?.publishedAt,
-      }));
+
+      const videos = (data.items ?? []).map((item) => {
+        let safeTitle = item.snippet?.title || '';
+        try {
+          // Some sources provide URL-encoded titles; decode when possible
+          safeTitle = decodeURIComponent(safeTitle);
+        } catch (_) {}
+        return {
+          id: item.id?.videoId,
+          title: safeTitle,
+          description: item.snippet?.description,
+          thumbnail: item.snippet?.thumbnails?.medium?.url,
+          channelTitle: item.snippet?.channelTitle,
+          publishedAt: item.snippet?.publishedAt,
+        };
+      });
       let summary = '', tags = [];
       const mcp = await summarizeWithPerplexity({ items: videos, topic, kind: 'youtube' });
       if (mcp) {

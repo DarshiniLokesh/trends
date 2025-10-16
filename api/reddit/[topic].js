@@ -1,3 +1,33 @@
+let cachedToken = null;
+let cachedTokenExpiry = 0;
+
+async function getRedditToken() {
+  try {
+    const now = Date.now();
+    if (cachedToken && now < cachedTokenExpiry - 30_000) return cachedToken;
+    const clientId = process.env.REDDIT_CLIENT_ID;
+    const clientSecret = process.env.REDDIT_CLIENT_SECRET;
+    if (!clientId || !clientSecret) return null;
+    const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+    const resp = await fetch('https://www.reddit.com/api/v1/access_token', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'TrendsApp/1.0 (+https://trends.vercel.app)'
+      },
+      body: 'grant_type=client_credentials'
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    cachedToken = data.access_token;
+    cachedTokenExpiry = Date.now() + (data.expires_in || 3600) * 1000;
+    return cachedToken;
+  } catch (_) {
+    return null;
+  }
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -8,8 +38,32 @@ module.exports = async (req, res) => {
     const pathname = new URL(req.url, `https://${req.headers.host}`).pathname;
     const topic = decodeURIComponent(pathname.split('/').pop() || 'technology');
 
-    // Ask Reddit for JSON explicitly and provide a User-Agent so we don't get HTML
-    // Try official api.reddit.com first (tends to be less aggressively blocked)
+    // Prefer OAuth if available for reliability
+    const token = await getRedditToken();
+    if (token) {
+      const rAuth = await fetch(`https://oauth.reddit.com/search?q=${encodeURIComponent(topic)}&limit=10&type=link&sort=relevance&raw_json=1`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'User-Agent': 'TrendsApp/1.0 (+https://trends.vercel.app)',
+          'Accept': 'application/json'
+        }
+      });
+      if (rAuth.ok) {
+        const data = await rAuth.json();
+        const posts = (data?.data?.children ?? []).map(p => ({
+          title: p.data.title,
+          url: `https://www.reddit.com${p.data.permalink}`,
+          author: p.data.author,
+          subreddit: p.data.subreddit,
+          ups: p.data.ups,
+          thumbnail: typeof p.data.thumbnail === 'string' && p.data.thumbnail.startsWith('http') ? p.data.thumbnail : null,
+        }));
+        return res.json({ posts, auth: true });
+      }
+      // fall through to anonymous if oauth fails
+    }
+
+    // Anonymous attempt (may be blocked)
     const apiUrlPrimary = `https://api.reddit.com/search.json?q=${encodeURIComponent(topic)}&limit=10&raw_json=1`;
     let r = await fetch(apiUrlPrimary, {
       headers: {
