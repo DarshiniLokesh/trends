@@ -12,6 +12,10 @@ export default function Feed({ searchTerm, category }: FeedProps) {
   const [news, setNews] = useState<any[]>([]);
   const [videos, setVideos] = useState<any[]>([]);
   const [redditPosts, setRedditPosts] = useState<any[]>([]);
+  const [newsSummary, setNewsSummary] = useState<string>("");
+  const [newsTags, setNewsTags] = useState<string[]>([]);
+  const [videoSummary, setVideoSummary] = useState<string>("");
+  const [videoTags, setVideoTags] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
@@ -48,7 +52,11 @@ export default function Feed({ searchTerm, category }: FeedProps) {
         const videoData = await videoRes.json();
         const redditData = await redditRes.json();
 
+        setNewsSummary(newsData.summary || "");
+        setNewsTags(newsData.tags || []);
         setNews(newsData.articles || []);
+        setVideoSummary(videoData.summary || "");
+        setVideoTags(videoData.tags || []);
         setVideos(videoData.videos || []);
         setRedditPosts(redditData.posts || []);
       } catch (err) {
@@ -79,6 +87,18 @@ export default function Feed({ searchTerm, category }: FeedProps) {
           {/* 📰 Latest News */}
           <section>
             <h2 className="text-xl font-bold mb-4">📰 Latest News</h2>
+            {newsSummary && (
+              <div className="mb-4 p-3 rounded-md bg-gray-50 dark:bg-gray-800 text-sm">
+                <p className="mb-2">{newsSummary}</p>
+                {newsTags.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {newsTags.map((t, i) => (
+                      <span key={i} className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-xs">#{t}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             {news.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {news.map((article, idx) => (
@@ -93,6 +113,18 @@ export default function Feed({ searchTerm, category }: FeedProps) {
           {/* 🎥 YouTube Videos */}
           <section ref={lastElementRef}>
             <h2 className="text-xl font-bold mb-4">🎥 Trending Videos</h2>
+            {videoSummary && (
+              <div className="mb-4 p-3 rounded-md bg-gray-50 dark:bg-gray-800 text-sm">
+                <p className="mb-2">{videoSummary}</p>
+                {videoTags.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {videoTags.map((t, i) => (
+                      <span key={i} className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-xs">#{t}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             {videos.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {videos.map((video, idx) => (
