@@ -60,7 +60,9 @@ module.exports = async (req, res) => {
         }));
         return res.json({ posts, auth: true });
       }
-      // fall through to anonymous if oauth fails
+      // fall through to anonymous if oauth fails; return diagnostic instead of 500
+      const failBody = await rAuth.text();
+      return res.status(200).json({ posts: [], auth: false, note: 'oauth_failed', status: rAuth.status, sample: failBody.slice(0, 160) });
     }
 
     // Anonymous attempt (may be blocked)
@@ -91,8 +93,8 @@ module.exports = async (req, res) => {
 
     if (!r.ok) {
       const body = await r.text();
-      // Graceful degrade: return empty list instead of error to keep UI working
-      return res.status(200).json({ posts: [], note: 'Reddit blocked the request; returning empty list', debug: body.slice(0, 120) });
+      // Return diagnostics instead of 500
+      return res.status(200).json({ posts: [], note: 'blocked_or_error', status: r.status, sample: body.slice(0, 160) });
     }
 
     // Read ONCE, then try to parse as JSON

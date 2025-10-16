@@ -43,9 +43,9 @@ module.exports = async (req, res) => {
       ];
       // Try models in order of availability; stop at first 200
       const modelCandidates = [
-        'llama-3.1-sonar-small-128k-online',
-        'llama-3.1-sonar-medium-128k-online',
-        'llama-3.1-sonar-large-128k-online'
+        'sonar-small-online',
+        'sonar-medium-online',
+        'sonar-large-online'
       ];
       let data = null;
       let lastStatus = null;
