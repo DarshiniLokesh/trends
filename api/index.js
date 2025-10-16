@@ -41,23 +41,33 @@ module.exports = async (req, res) => {
           content: `topic: ${topic}\nkind: ${kind}\nitems:\n${contentList.join('\n')}`
         }
       ];
-
-      const resp = await fetch('https://api.perplexity.ai/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${key}`
-        },
-        body: JSON.stringify({
-          model: 'llama-3.1-sonar-large-128k-online',
-          temperature: 0.2,
-          max_tokens: 400,
-          messages
-        })
-      });
-      if (!resp.ok) return { ok: false, status: resp.status };
-      const data = await resp.json();
+      // Try models in order of availability; stop at first 200
+      const modelCandidates = [
+        'llama-3.1-sonar-small-128k-online',
+        'llama-3.1-sonar-medium-128k-online',
+        'llama-3.1-sonar-large-128k-online'
+      ];
+      let data = null;
+      let lastStatus = null;
+      for (const model of modelCandidates) {
+        const resp = await fetch('https://api.perplexity.ai/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${key}`
+          },
+          body: JSON.stringify({ model, temperature: 0.2, max_tokens: 400, messages })
+        });
+        lastStatus = resp.status;
+        if (resp.ok) {
+          data = await resp.json();
+          break;
+        }
+      }
+      if (!data) return { ok: false, status: lastStatus ?? 'NO_RESPONSE' };
+      
+      // Normalize text
       const text = data?.choices?.[0]?.message?.content || '';
       // Try fenced JSON first
       let jsonString = '';
