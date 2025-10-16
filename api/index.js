@@ -9,7 +9,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.get("/api/news/:topic", async (req, res) => {
+app.get("/news/:topic", async (req, res) => {
   try {
     const topic = req.params.topic;
     const NEWS_API_KEY = process.env.NEWS_API_KEY;
@@ -23,7 +23,7 @@ app.get("/api/news/:topic", async (req, res) => {
   }
 });
 
-app.get("/api/youtube/:topic", async (req, res) => {
+app.get("/youtube/:topic", async (req, res) => {
   try {
     const topic = req.params.topic;
     const YT_API = process.env.YOUTUBE_API_KEY;
@@ -45,7 +45,7 @@ app.get("/api/youtube/:topic", async (req, res) => {
   }
 });
 
-app.get("/api/reddit/:topic", async (req, res) => {
+app.get("/reddit/:topic", async (req, res) => {
   try {
     const topic = req.params.topic;
     const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(topic)}&limit=10`;
