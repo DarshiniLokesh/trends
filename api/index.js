@@ -1,6 +1,14 @@
 const express = require("express");
 const app = express();
 
+app.use(express.json());
+
+// Debug middleware
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  next();
+});
+
 app.get("/api/news/:topic", async (req, res) => {
   try {
     const topic = req.params.topic;
@@ -57,6 +65,6 @@ app.get("/api/reddit/:topic", async (req, res) => {
   }
 });
 
-module.exports = (req, res) => app(req, res);
+module.exports = app;
 
 
