@@ -1,6 +1,8 @@
 module.exports = async (req, res) => {
   try {
-    const topic = req.url.split('/').pop();
+    // Extract topic from URL path like /api/reddit/technology
+    const urlPath = new URL(req.url, `https://${req.headers.host}`).pathname;
+    const topic = urlPath.split('/').pop();
     const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(topic)}&limit=10`;
     const response = await fetch(url);
     const data = await response.json();

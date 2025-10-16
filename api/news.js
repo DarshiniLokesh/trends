@@ -1,6 +1,8 @@
 module.exports = async (req, res) => {
   try {
-    const topic = req.url.split('/').pop();
+    // Extract topic from URL path like /api/news/technology
+    const urlPath = new URL(req.url, `https://${req.headers.host}`).pathname;
+    const topic = urlPath.split('/').pop();
     const NEWS_API_KEY = process.env.NEWS_API_KEY;
     
     if (!NEWS_API_KEY) {

@@ -1,6 +1,8 @@
 module.exports = async (req, res) => {
   try {
-    const topic = req.url.split('/').pop();
+    // Extract topic from URL path like /api/youtube/technology
+    const urlPath = new URL(req.url, `https://${req.headers.host}`).pathname;
+    const topic = urlPath.split('/').pop();
     const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
     
     if (!YOUTUBE_API_KEY) {
