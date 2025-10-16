@@ -1,5 +1,16 @@
 module.exports = async (req, res) => {
+  // Add CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
   try {
+    console.log('YouTube API called with URL:', req.url);
     // Extract topic from URL path like /api/youtube/technology
     const urlPath = new URL(req.url, `https://${req.headers.host}`).pathname;
     const topic = urlPath.split('/').pop();
