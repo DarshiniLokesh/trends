@@ -29,17 +29,13 @@ module.exports = async (req, res) => {
       return res.status(r.status).json({ error: 'Upstream Reddit error', status: r.status, bodySample: body.slice(0, 200) });
     }
 
+    // Read ONCE, then try to parse as JSON
+    const bodyText = await r.text();
     let data;
     try {
-      const text = await r.text();
-      data = typeof text === 'string' ? JSON.parse(text) : text;
-    } catch (_) {
-      try {
-        data = await r.json();
-      } catch (e) {
-        const body = await r.text();
-        return res.status(502).json({ error: 'Reddit returned non-JSON', bodySample: body.slice(0, 200) });
-      }
+      data = JSON.parse(bodyText);
+    } catch (e) {
+      return res.status(502).json({ error: 'Reddit returned non-JSON', bodySample: bodyText.slice(0, 200) });
     }
     const posts = (data?.data?.children ?? []).map(p => ({
       title: p.data.title,
