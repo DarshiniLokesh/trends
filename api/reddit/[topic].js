@@ -10,11 +10,19 @@ module.exports = async (req, res) => {
 
     // Ask Reddit for JSON explicitly and provide a User-Agent so we don't get HTML
     const apiUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(topic)}&limit=10&raw_json=1`;
-    const r = await fetch(apiUrl, {
+    let r = await fetch(apiUrl, {
       headers: {
-        'User-Agent': 'trends-app/1.0 (+https://trends.vercel.app)'
+        'User-Agent': 'Mozilla/5.0 (compatible; TrendsBot/1.0; +https://trends.vercel.app)',
+        'Accept': 'application/json',
+        'Referer': 'https://www.reddit.com/'
       }
     });
+
+    // If Reddit blocks the Vercel IP (403), retry once with a fallback fetcher
+    if (r.status === 403) {
+      const fallback = `https://r.jina.ai/http://www.reddit.com/search.json?q=${encodeURIComponent(topic)}&limit=10&raw_json=1`;
+      r = await fetch(fallback);
+    }
 
     if (!r.ok) {
       const body = await r.text();
@@ -23,10 +31,15 @@ module.exports = async (req, res) => {
 
     let data;
     try {
-      data = await r.json();
+      const text = await r.text();
+      data = typeof text === 'string' ? JSON.parse(text) : text;
     } catch (_) {
-      const body = await r.text();
-      return res.status(502).json({ error: 'Reddit returned non-JSON', bodySample: body.slice(0, 200) });
+      try {
+        data = await r.json();
+      } catch (e) {
+        const body = await r.text();
+        return res.status(502).json({ error: 'Reddit returned non-JSON', bodySample: body.slice(0, 200) });
+      }
     }
     const posts = (data?.data?.children ?? []).map(p => ({
       title: p.data.title,
